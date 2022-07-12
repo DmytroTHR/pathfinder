@@ -1,4 +1,8 @@
 import pathfinder.FileCrawler;
+import pathfinder.FilePrinter;
+
+import java.nio.file.Path;
+import java.util.List;
 
 public class App {
     static String root;
@@ -29,8 +33,19 @@ public class App {
             usage();
         }
 
+        FilePrinter fp = new FilePrinter();
+        Thread printer = new Thread(fp);
+        printer.start();
         FileCrawler fCrawler = new FileCrawler(root, depth, mask);
-        fCrawler.findFilesThatMatch().forEach(System.out::println);
+        fCrawler.setPrinter(fp);
+        List<Path> results = fCrawler.findFilesThatMatch();
+        fp.close();
+        System.out.println("found:\t"+results.size());
+        try {
+            printer.join();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

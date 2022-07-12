@@ -18,10 +18,13 @@ public class FileCrawler {
     private final int maxDepth;
     private final PathMatcher matcher;
 
+    private FilePrinter filePrinter;
+
     public FileCrawler(String path, int depth, String fileMask) {
         this.rootPath = Paths.get(path);
         this.maxDepth = depth;
         this.matcher = FileSystems.getDefault().getPathMatcher("glob:" + fileMask);
+        this.filePrinter = null;
     }
 
     public List<Path> findFilesThatMatch() {
@@ -41,6 +44,7 @@ public class FileCrawler {
             try (Stream<Path> listNewLevel = Files.list(queue.poll())) {
                 if (curDepth + 1 == maxDepth) {
                     listNewLevel.filter(this::matchesPattern)
+                            .peek(this::printerOutput)
                             .forEach(result::add);
                 } else {
                     listNewLevel.forEach(p -> queue.add(p));
@@ -63,5 +67,17 @@ public class FileCrawler {
 
     private int currentDepth(Path withPath) {
         return withPath.getNameCount() - this.rootPath.getNameCount();
+    }
+
+    public void setPrinter(FilePrinter fp) {
+        filePrinter = fp;
+    }
+
+    private void printerOutput(Path p) {
+        if (filePrinter != null) {
+            filePrinter.printPath(p);
+        } else {
+            System.out.println("Default print:\t"+p);
+        }
     }
 }
