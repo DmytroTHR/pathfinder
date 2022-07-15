@@ -1,31 +1,26 @@
-import pathfinder.FileCrawler;
-import pathfinder.FilePrinter;
+import pathfinder.server.FileCrawler;
+import pathfinder.server.LookupServer;
 
-import java.nio.file.Path;
-import java.util.List;
+import java.io.IOException;
 
 public class App {
     static String root;
-    static Integer depth;
-    static String mask;
+    static Integer port;
 
     static void usage() {
-        System.err.println("java App -DrootPath=<rootPath> -Ddepth=<depth> -Dmask=<mask>");
+        System.err.println("java App -Ddepth=<port> -DrootPath=<rootPath>");
+        System.err.println("\t port [1024-65535] - port on which server will run");
         System.err.println("\t rootPath - absolute path where to start from");
-        System.err.println("\t depth - depth where to look for data (non-negative)");
-        System.err.println("\t mask - glob formatted pattern of path to find");
         System.exit(-1);
     }
 
     static boolean fillParams() {
         root = System.getProperty("rootPath");
-        mask = System.getProperty("mask");
-        String depthString = System.getProperty("depth");
-        depth = depthString==null ? null : Integer.parseInt(depthString);
+        String portStr = System.getProperty("port");
+        port = portStr == null ? null : Integer.parseInt(portStr);
 
         return (root != null && root.length() > 0
-                && depth != null && depth >= 0
-                && mask != null && mask.length() > 0);
+                && port != null && port > 1024 && port < 65535);
     }
 
     public static void main(String[] args) {
@@ -33,19 +28,21 @@ public class App {
             usage();
         }
 
-        FilePrinter fp = new FilePrinter();
-        Thread printer = new Thread(fp);
-        printer.start();
-        FileCrawler fCrawler = new FileCrawler(root, depth, mask);
-        fCrawler.setPrinter(fp);
-        List<Path> results = fCrawler.findFilesThatMatch();
-        fp.close();
-        System.out.println("found:\t"+results.size());
-        try {
-            printer.join();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        FileCrawler fileCrawler = new FileCrawler(root);
+        new Thread(fileCrawler).start();
+
+        try (LookupServer server = new LookupServer(port, root)) {
+            server.start();
+            server.join();
+        } catch (IOException ex) {
+            System.err.println("Server start error. Port: "+port);
+            ex.printStackTrace();
+        } catch (InterruptedException ex) {
+            System.err.println("Server stop error. Port: "+port);
+            ex.printStackTrace();
         }
+
+
     }
 
 }
